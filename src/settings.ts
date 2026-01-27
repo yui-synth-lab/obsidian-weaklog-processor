@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: WeaklogSettings = {
   model: 'claude-3-5-sonnet-20241022',
   triageTemperature: 0.3,
   synthesisTemperature: 0.7,
+  responseLanguage: 'english',
 
   // Multi-provider defaults
   llmProvider: 'anthropic',
@@ -405,6 +406,21 @@ export class WeaklogSettingTab extends PluginSettingTab {
               return;
             }
             this.plugin.settings.synthesisTemperature = temp;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    // Response language
+    new Setting(containerEl)
+      .setName('Response Language')
+      .setDesc('Language for AI responses')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('english', 'English')
+          .addOption('japanese', '日本語')
+          .setValue(this.plugin.settings.responseLanguage)
+          .onChange(async (value) => {
+            this.plugin.settings.responseLanguage = value as any;
             await this.plugin.saveSettings();
           })
       );

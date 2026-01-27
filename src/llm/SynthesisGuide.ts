@@ -11,13 +11,18 @@
  */
 
 import { LLMClient } from './LLMClient';
-import { SynthesisGuide as SynthesisGuideType, TriageResult } from '../types';
+import { SynthesisGuide as SynthesisGuideType, TriageResult, ResponseLanguage } from '../types';
 
 /**
- * System prompt for synthesis question generation
- * Guides Claude to create reflective, deepening questions
+ * Generate system prompt for synthesis question generation
+ * Guides LLM to create reflective, deepening questions in specified language
  */
-const SYNTHESIS_SYSTEM_PROMPT = `You are a creative writing coach helping transform personal journal entries into universal, transferable creative works.
+function getSynthesisSystemPrompt(language: ResponseLanguage): string {
+  const languageInstruction = language === 'japanese'
+    ? '\n\nIMPORTANT: Generate ALL questions in Japanese (日本語). The suggestedTone should also be in Japanese.'
+    : '\n\nIMPORTANT: Generate ALL questions in English.';
+
+  return `You are a creative writing coach helping transform personal journal entries into universal, transferable creative works.
 
 Your task is to generate 3-5 deepening questions that help the author:
 1. Move from personal experience to universal insight
@@ -42,18 +47,30 @@ Respond with JSON in this exact format:
     "Question 3 text here?"
   ],
   "suggestedTone": "reflective" or "analytical" or "exploratory"
-}`;
+}${languageInstruction}`;
+}
 
 /**
- * Fallback questions when parsing fails
+ * Get fallback questions when parsing fails
  * Conservative, generic questions that work for most entries
  */
-const FALLBACK_QUESTIONS = [
-  'What universal pattern or truth does this experience reveal?',
-  'How might others facing similar situations benefit from this insight?',
-  'What question would you want to explore more deeply?',
-  'If this were a lesson for your future self, what would it be?',
-];
+function getFallbackQuestions(language: ResponseLanguage): string[] {
+  if (language === 'japanese') {
+    return [
+      'この経験が示す普遍的なパターンや真実は何ですか？',
+      '同じような状況に直面している他の人は、この洞察からどのような恩恵を受けるでしょうか？',
+      'より深く探求したい問いは何ですか？',
+      'もしこれが未来の自分へのレッスンだとしたら、それは何でしょうか？',
+    ];
+  }
+
+  return [
+    'What universal pattern or truth does this experience reveal?',
+    'How might others facing similar situations benefit from this insight?',
+    'What question would you want to explore more deeply?',
+    'If this were a lesson for your future self, what would it be?',
+  ];
+}
 
 /**
  * SynthesisGuide class
@@ -78,11 +95,13 @@ export class SynthesisGuide {
    *
    * @param content - Raw entry content
    * @param triageResult - Results from triage analysis
+   * @param language - Response language for AI output
    * @returns SynthesisGuide with 3-5 questions
    */
   async generateQuestions(
     content: string,
-    triageResult: TriageResult
+    triageResult: TriageResult,
+    language: ResponseLanguage = 'english'
   ): Promise<SynthesisGuideType> {
     if (!content || content.trim().length === 0) {
       throw new Error('Content cannot be empty');
@@ -94,9 +113,12 @@ export class SynthesisGuide {
       // Build user prompt with context from triage
       const userPrompt = this.buildUserPrompt(content, triageResult);
 
+      // Get system prompt for specified language
+      const systemPrompt = getSynthesisSystemPrompt(language);
+
       // Call API
       const response = await this.llmClient.callAPI(
-        SYNTHESIS_SYSTEM_PROMPT,
+        systemPrompt,
         userPrompt,
         {
           temperature: this.temperature,
@@ -108,7 +130,7 @@ export class SynthesisGuide {
       console.log('[Weaklog] Received synthesis response');
 
       // Parse response
-      const guide = this.parseSynthesisResponse(response);
+      const guide = this.parseSynthesisResponse(response, language);
 
       console.log(`[Weaklog] Generated ${guide.questions.length} synthesis questions`);
 
@@ -166,9 +188,10 @@ export class SynthesisGuide {
    * Validates 3-5 question count with fallback
    *
    * @param response - Raw API response
+   * @param language - Response language for fallback
    * @returns Structured SynthesisGuide
    */
-  private parseSynthesisResponse(response: string): SynthesisGuideType {
+  private parseSynthesisResponse(response: string, language: ResponseLanguage): SynthesisGuideType {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -218,7 +241,7 @@ export class SynthesisGuide {
       console.log('[Weaklog] Raw response:', response);
 
       // Return fallback questions
-      return this.createFallbackGuide();
+      return this.createFallbackGuide(language);
     }
   }
 
@@ -240,15 +263,16 @@ export class SynthesisGuide {
 
   /**
    * Create fallback guide when parsing fails
-   * Uses generic but effective questions
+   * Uses generic but effective questions in specified language
    *
+   * @param language - Response language for fallback questions
    * @returns Conservative SynthesisGuide
    */
-  private createFallbackGuide(): SynthesisGuideType {
+  private createFallbackGuide(language: ResponseLanguage): SynthesisGuideType {
     console.warn('[Weaklog] Using fallback synthesis questions due to parsing error');
 
     return {
-      questions: FALLBACK_QUESTIONS,
+      questions: getFallbackQuestions(language),
       suggestedTone: 'reflective',
       timestamp: new Date().toISOString(),
     };
@@ -279,11 +303,12 @@ export class SynthesisGuide {
   }
 
   /**
-   * Get fallback questions
+   * Get fallback questions in specified language
    * Useful for testing or when API is unavailable
+   * @param language - Response language
    * @returns Array of fallback questions
    */
-  getFallbackQuestions(): string[] {
-    return [...FALLBACK_QUESTIONS];
+  getFallbackQuestions(language: ResponseLanguage = 'english'): string[] {
+    return getFallbackQuestions(language);
   }
 }

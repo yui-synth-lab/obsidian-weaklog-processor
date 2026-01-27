@@ -20,6 +20,14 @@ export type LLMProviderType =
   | 'gemini'     // Google Gemini (cloud)
   | 'ollama';    // Ollama (local)
 
+/**
+ * Supported response languages
+ * Determines the language of LLM responses
+ */
+export type ResponseLanguage =
+  | 'english'    // English
+  | 'japanese';  // 日本語
+
 // ============================================================================
 // Workflow Status Types
 // ============================================================================
@@ -163,6 +171,9 @@ export interface WeaklogSettings {
 
   /** Temperature for synthesis (0.0-1.0, default: 0.7 for creativity) */
   synthesisTemperature: number;
+
+  /** Response language for LLM outputs (default: 'english') */
+  responseLanguage: ResponseLanguage;
 
   // ========================================================================
   // Multi-Provider Settings

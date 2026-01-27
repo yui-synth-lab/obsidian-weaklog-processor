@@ -11,13 +11,18 @@
  */
 
 import { LLMClient } from './LLMClient';
-import { TriageResult, CheckResult } from '../types';
+import { TriageResult, CheckResult, ResponseLanguage } from '../types';
 
 /**
- * System prompt defining triage criteria
- * Instructs Claude to evaluate entries objectively
+ * Generate system prompt for triage analysis
+ * Instructs LLM to evaluate entries objectively in specified language
  */
-const TRIAGE_SYSTEM_PROMPT = `You are an objective evaluator for a creative writing project.
+function getTriageSystemPrompt(language: ResponseLanguage): string {
+  const languageInstruction = language === 'japanese'
+    ? '\n\nIMPORTANT: Respond in Japanese (日本語). All explanations, reasons, and the core question must be in Japanese.'
+    : '\n\nIMPORTANT: Respond in English.';
+
+  return `You are an objective evaluator for a creative writing project.
 Your task is to evaluate raw journal entries to determine if they have potential to be transformed into universal, transferable creative works.
 
 Evaluate the entry against these 4 criteria:
@@ -58,7 +63,8 @@ Respond ONLY with JSON in this exact format:
   "coreQuestion": "...",
   "score": 4,
   "recommendation": "adopt"
-}`;
+}${languageInstruction}`;
+}
 
 /**
  * TriageAnalyzer class
@@ -79,12 +85,13 @@ export class TriageAnalyzer {
 
   /**
    * Analyze weaklog entry with AI triage
-   * Sends content to Claude for 4-criteria evaluation
+   * Sends content to LLM for 4-criteria evaluation
    *
    * @param content - Raw entry content to evaluate
+   * @param language - Response language for AI output
    * @returns TriageResult with checks, score, and recommendation
    */
-  async analyzeEntry(content: string): Promise<TriageResult> {
+  async analyzeEntry(content: string, language: ResponseLanguage = 'english'): Promise<TriageResult> {
     if (!content || content.trim().length === 0) {
       throw new Error('Content cannot be empty');
     }
@@ -95,9 +102,12 @@ export class TriageAnalyzer {
       // Build user prompt
       const userPrompt = `Evaluate this journal entry:\n\n${content}`;
 
+      // Get system prompt for specified language
+      const systemPrompt = getTriageSystemPrompt(language);
+
       // Call API
       const response = await this.llmClient.callAPI(
-        TRIAGE_SYSTEM_PROMPT,
+        systemPrompt,
         userPrompt,
         {
           temperature: this.temperature,

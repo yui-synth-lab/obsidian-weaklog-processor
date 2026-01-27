@@ -400,7 +400,10 @@ export default class WeaklogPlugin extends Plugin {
 
         // Analyze with triage
         const analyzer = new TriageAnalyzer(llmClient, this.settings.triageTemperature);
-        const triageResult = await analyzer.analyzeEntry(entry.content);
+        const triageResult = await analyzer.analyzeEntry(
+          entry.content,
+          this.settings.responseLanguage
+        );
 
         // Hide loading notice
         loadingNotice.hide();
@@ -458,7 +461,8 @@ export default class WeaklogPlugin extends Plugin {
         const synthesisGuide = new SynthesisGuide(llmClient, this.settings.synthesisTemperature);
         const guide = await synthesisGuide.generateQuestions(
           entry.content,
-          entry.triageResult
+          entry.triageResult,
+          this.settings.responseLanguage
         );
 
         // Hide loading notice
