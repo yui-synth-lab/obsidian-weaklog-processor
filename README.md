@@ -201,8 +201,8 @@ export WEAKLOG_API_KEY="sk-..."
 
 **Recommended Models**:
 
-- `gemini-3-pro` (Default, best quality)
-- `gemini-3-flash` (Faster, lower cost)
+- `gemini-3-pro-preview` (Default, best quality)
+- `gemini-3-flash-preview` (Faster, lower cost)
 - `gemini-2.0-flash` (Standard/Previous Gen)
 
 **Environment Variable**:

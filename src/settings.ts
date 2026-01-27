@@ -355,8 +355,8 @@ export class WeaklogSettingTab extends PluginSettingTab {
               .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo');
           } else if (provider === 'gemini') {
             dropdown
-              .addOption('gemini-3-pro', 'Gemini 3 Pro (Recommended)')
-              .addOption('gemini-3-flash', 'Gemini 3 Flash')
+              .addOption('gemini-3-pro-preview', 'Gemini 3 Pro (Recommended)')
+              .addOption('gemini-3-flash-preview', 'Gemini 3 Flash')
               .addOption('gemini-2.0-flash', 'Gemini 2.0 Flash')
               .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro')
               .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash');
