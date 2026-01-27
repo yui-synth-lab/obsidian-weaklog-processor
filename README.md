@@ -91,10 +91,66 @@ Weaklog/
 
 ## Privacy & Security
 
-- API keys are stored in Obsidian's encrypted data.json
-- All data stays local except API requests to Anthropic
-- No telemetry or tracking
-- File operations use Obsidian's secure Vault API
+### API Key Storage
+
+Weaklog Processor implements a **3-tier security approach** for API key storage:
+
+1. **Environment Variable** (Highest Security) - **Recommended**
+   - Set `WEAKLOG_API_KEY` environment variable
+   - Key never stored in vault files
+   - Ideal for sensitive environments
+
+2. **Obsidian SecretStorage API** (Medium Security)
+   - Uses Obsidian's built-in SecretStorage when available
+   - Automatically used if environment variable not set
+
+3. **data.json Fallback** (Lowest Security)
+   - Unencrypted storage in vault plugins folder
+   - Used only when other methods unavailable
+   - Warning displayed in settings
+
+**Security Status Indicator**: Settings UI shows which method is active (🔒 secure / ⚠️ unencrypted)
+
+### Environment Variable Setup
+
+**Windows (PowerShell)**:
+
+```powershell
+# Temporary (current session)
+$env:WEAKLOG_API_KEY="sk-ant-..."
+
+# Permanent (system-wide)
+[System.Environment]::SetEnvironmentVariable("WEAKLOG_API_KEY", "sk-ant-...", "User")
+```
+
+**macOS/Linux (Bash/Zsh)**:
+
+```bash
+# Temporary (current session)
+export WEAKLOG_API_KEY="sk-ant-..."
+
+# Permanent (add to ~/.bashrc or ~/.zshrc)
+echo 'export WEAKLOG_API_KEY="sk-ant-..."' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**After setting environment variable**: Restart Obsidian to detect it.
+
+### Data Privacy
+
+- **Local-First Architecture**: All weaklog entries stay in your vault
+- **API Usage**: Only entry content sent to Anthropic for analysis (no metadata)
+- **No Telemetry**: Zero analytics, tracking, or data collection
+- **Secure Operations**: All file operations use Obsidian's Vault API
+- **Anthropic Privacy**: See [Anthropic Privacy Policy](https://www.anthropic.com/privacy)
+
+### Security Best Practices
+
+1. **Use Environment Variable**: Recommended for maximum security
+2. **Don't Commit .obsidian**: Add `.obsidian/` to `.gitignore` if syncing vault
+3. **Rotate API Keys**: Periodically regenerate keys at console.anthropic.com
+4. **Monitor Usage**: Check API usage in Anthropic console
+5. **Test Connection**: Use "Test API Connection" button in settings to verify
 
 ## Triage Criteria
 

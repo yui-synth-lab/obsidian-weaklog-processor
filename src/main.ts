@@ -14,8 +14,10 @@ import { FileManager } from './managers/FileManager';
 import { CooldownManager } from './managers/CooldownManager';
 import { LLMClient } from './llm/LLMClient';
 import { TriageAnalyzer } from './llm/TriageAnalyzer';
+import { SynthesisGuide } from './llm/SynthesisGuide';
 import { RawLogModal } from './views/RawLogModal';
 import { TriageModal } from './views/TriageModal';
+import { SynthesisModal } from './views/SynthesisModal';
 
 /**
  * Main plugin class for Weaklog Processor
@@ -259,7 +261,7 @@ export default class WeaklogPlugin extends Plugin {
         // Only available if active file is in 03_Triaged
         if (file && file.path.includes('/03_Triaged/')) {
           if (!checking) {
-            new Notice('Synthesis command will be implemented in Phase 3');
+            this.handleSynthesizeCommand(file);
           }
           return true;
         }
@@ -277,7 +279,7 @@ export default class WeaklogPlugin extends Plugin {
         // Only available if active file is in 04_Synthesized
         if (file && file.path.includes('/04_Synthesized/')) {
           if (!checking) {
-            new Notice('Publish command will be implemented in Phase 3');
+            this.handlePublishCommand(file);
           }
           return true;
         }
@@ -346,6 +348,103 @@ export default class WeaklogPlugin extends Plugin {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Weaklog] Triage command failed:', error);
       new Notice(`❌ Triage failed: ${errorMessage}`, 5000);
+    }
+  }
+
+  /**
+   * Handle synthesize command
+   * Generates AI questions and opens SynthesisModal for transformation
+   */
+  private async handleSynthesizeCommand(file: any): Promise<void> {
+    try {
+      // Validate API key
+      const apiKey = await this.getApiKey();
+      if (!apiKey) {
+        new Notice('⚠️ Please configure your Anthropic API key in settings', 5000);
+        return;
+      }
+
+      // Read entry
+      const entry = await this.fileManager.readWeaklogEntry(file);
+      if (!entry) {
+        new Notice('❌ Failed to read entry', 3000);
+        return;
+      }
+
+      // Validate triage result exists
+      if (!entry.triageResult) {
+        new Notice('❌ Entry has no triage result. Please triage first.', 5000);
+        console.error('[Weaklog] Synthesize attempted on entry without triage result');
+        return;
+      }
+
+      // Show loading notice
+      const loadingNotice = new Notice('🤖 Generating synthesis questions...', 0);
+
+      try {
+        // Initialize LLM client
+        const llmClient = new LLMClient(apiKey, this.settings.model);
+        llmClient.initialize();
+
+        // Generate synthesis questions
+        const synthesisGuide = new SynthesisGuide(llmClient, this.settings.synthesisTemperature);
+        const guide = await synthesisGuide.generateQuestions(
+          entry.content,
+          entry.triageResult
+        );
+
+        // Hide loading notice
+        loadingNotice.hide();
+
+        // Open synthesis modal
+        const modal = new SynthesisModal(
+          this.app,
+          this.fileManager,
+          file,
+          guide,
+          entry.triageResult,
+          entry.content
+        );
+        modal.open();
+
+      } catch (error) {
+        loadingNotice.hide();
+        throw error;
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Weaklog] Synthesize command failed:', error);
+      new Notice(`❌ Synthesis failed: ${errorMessage}`, 5000);
+    }
+  }
+
+  /**
+   * Handle publish command
+   * Finalizes entry and moves to 05_Published folder
+   */
+  private async handlePublishCommand(file: any): Promise<void> {
+    try {
+      console.log('[Weaklog] Publishing entry');
+
+      // Update frontmatter with published status and timestamp
+      await this.fileManager.updateFrontmatter(file, {
+        published_at: new Date().toISOString(),
+      });
+
+      // Move to 05_Published
+      const publishedFile = await this.fileManager.moveFile(file, 'published');
+
+      new Notice(`✓ Entry published: ${file.basename}`, 3000);
+      console.log('[Weaklog] Entry published successfully');
+
+      // Open the published file
+      this.app.workspace.getLeaf().openFile(publishedFile);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Weaklog] Publish command failed:', error);
+      new Notice(`❌ Failed to publish: ${errorMessage}`, 5000);
     }
   }
 }
