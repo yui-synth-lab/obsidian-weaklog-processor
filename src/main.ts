@@ -474,8 +474,10 @@ export default class WeaklogPlugin extends Plugin {
           this.fileManager,
           file,
           guide,
+          synthesisGuide,
           entry.triageResult,
-          entry.content
+          entry.content,
+          this.settings.responseLanguage
         );
         modal.open();
 

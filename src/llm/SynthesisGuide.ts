@@ -311,4 +311,115 @@ export class SynthesisGuide {
   getFallbackQuestions(language: ResponseLanguage = 'english'): string[] {
     return getFallbackQuestions(language);
   }
+
+  // ========================================================================
+  // Draft Suggestion Generation
+  // ========================================================================
+
+  /**
+   * Generate AI-powered draft suggestion based on Q&A
+   * Creates a creative work from the synthesis questions and answers
+   *
+   * @param originalContent - Original entry content
+   * @param triageResult - Triage evaluation results
+   * @param questionsAndAnswers - Array of question-answer pairs
+   * @param language - Response language for AI output
+   * @returns Suggested draft content
+   */
+  async generateDraftSuggestion(
+    originalContent: string,
+    triageResult: TriageResult,
+    questionsAndAnswers: Array<{ question: string; answer: string }>,
+    language: ResponseLanguage = 'english'
+  ): Promise<string> {
+    if (questionsAndAnswers.length === 0) {
+      throw new Error('At least one question-answer pair is required');
+    }
+
+    console.log('[Weaklog] Generating AI draft suggestion');
+
+    try {
+      const systemPrompt = this.getDraftSuggestionSystemPrompt(language);
+      const userPrompt = this.buildDraftSuggestionPrompt(
+        originalContent,
+        triageResult,
+        questionsAndAnswers
+      );
+
+      const response = await this.llmClient.callAPI(
+        systemPrompt,
+        userPrompt,
+        {
+          temperature: this.temperature,
+          maxTokens: 1500,
+          timeoutMs: 30000,
+        }
+      );
+
+      console.log('[Weaklog] Received draft suggestion');
+      return response.trim();
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Weaklog] Draft suggestion failed:', errorMessage);
+      throw new Error(`Draft suggestion failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get system prompt for draft suggestion
+   */
+  private getDraftSuggestionSystemPrompt(language: ResponseLanguage): string {
+    const languageInstruction = language === 'japanese'
+      ? '\n\nIMPORTANT: Write the entire draft in Japanese (日本語).'
+      : '\n\nIMPORTANT: Write the entire draft in English.';
+
+    return `You are a creative writing coach helping transform personal reflections into universal, transferable creative works.
+
+Your task is to synthesize the user's answers into a cohesive, creative piece that:
+1. Transforms personal experience into universal insight
+2. Is accessible and valuable to others
+3. Maintains authenticity while being transferable
+4. Has a clear narrative or conceptual arc
+5. Speaks to broader human experiences
+
+Guidelines:
+- Write in a clear, engaging style
+- Focus on insights and patterns, not just personal details
+- Make it relatable to a wider audience
+- Use the suggested tone appropriately
+- Keep it concise but impactful (300-600 words)
+- Do NOT just summarize the answers - transform them into creative work
+
+Output ONLY the draft content. Do not include meta-commentary, titles, or explanations.${languageInstruction}`;
+  }
+
+  /**
+   * Build user prompt for draft suggestion
+   */
+  private buildDraftSuggestionPrompt(
+    originalContent: string,
+    triageResult: TriageResult,
+    questionsAndAnswers: Array<{ question: string; answer: string }>
+  ): string {
+    const parts = [
+      'Transform the following reflections into a creative work:',
+      '',
+      `Core Question: ${triageResult.coreQuestion}`,
+      '',
+      'Synthesis Questions & Answers:',
+      '',
+    ];
+
+    questionsAndAnswers.forEach((qa, index) => {
+      parts.push(`Q${index + 1}: ${qa.question}`);
+      parts.push(`A${index + 1}: ${qa.answer}`);
+      parts.push('');
+    });
+
+    parts.push('Original Entry (for context):');
+    parts.push(originalContent);
+
+    return parts.join('\n');
+  }
 }

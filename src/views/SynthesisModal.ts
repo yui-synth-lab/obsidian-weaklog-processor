@@ -10,7 +10,8 @@
 
 import { App, Modal, Notice, TFile } from 'obsidian';
 import { FileManager } from '../managers/FileManager';
-import { SynthesisGuide, TriageResult } from '../types';
+import { SynthesisGuide as SynthesisGuideType, TriageResult } from '../types';
+import { SynthesisGuide } from '../llm/SynthesisGuide';
 
 /**
  * Answer data structure for internal use
@@ -27,26 +28,36 @@ interface QuestionAnswer {
 export class SynthesisModal extends Modal {
   private fileManager: FileManager;
   private file: TFile;
-  private synthesisGuide: SynthesisGuide;
+  private synthesisGuideData: SynthesisGuideType;
+  private synthesisGuideInstance: SynthesisGuide;
   private triageResult: TriageResult;
   private originalContent: string;
   private answers: Map<number, string>;
+  private aiSuggestedDraft: string | null;
+  private suggestedDraftEl: HTMLElement | null;
+  private responseLanguage: 'english' | 'japanese';
 
   constructor(
     app: App,
     fileManager: FileManager,
     file: TFile,
-    synthesisGuide: SynthesisGuide,
+    synthesisGuideData: SynthesisGuideType,
+    synthesisGuideInstance: SynthesisGuide,
     triageResult: TriageResult,
-    originalContent: string
+    originalContent: string,
+    responseLanguage: 'english' | 'japanese' = 'english'
   ) {
     super(app);
     this.fileManager = fileManager;
     this.file = file;
-    this.synthesisGuide = synthesisGuide;
+    this.synthesisGuideData = synthesisGuideData;
+    this.synthesisGuideInstance = synthesisGuideInstance;
     this.triageResult = triageResult;
     this.originalContent = originalContent;
     this.answers = new Map();
+    this.aiSuggestedDraft = null;
+    this.suggestedDraftEl = null;
+    this.responseLanguage = responseLanguage;
   }
 
   // ========================================================================
@@ -83,12 +94,21 @@ export class SynthesisModal extends Modal {
     toneEl.style.fontSize = '13px';
     toneEl.createEl('strong', { text: 'Suggested tone: ' });
     toneEl.createEl('span', {
-      text: this.synthesisGuide.suggestedTone,
+      text: this.synthesisGuideData.suggestedTone,
       cls: 'weaklog-tone-value',
     }).style.fontStyle = 'italic';
 
     // Questions
     this.renderQuestions(contentEl);
+
+    // AI Suggested Draft section (will be populated when generated)
+    this.suggestedDraftEl = contentEl.createDiv('weaklog-suggested-draft');
+    this.suggestedDraftEl.style.display = 'none';
+    this.suggestedDraftEl.style.marginTop = '24px';
+    this.suggestedDraftEl.style.padding = '16px';
+    this.suggestedDraftEl.style.backgroundColor = 'var(--background-secondary)';
+    this.suggestedDraftEl.style.borderRadius = '8px';
+    this.suggestedDraftEl.style.border = '1px solid var(--background-modifier-border)';
 
     // Actions
     this.renderActions(contentEl);
@@ -114,7 +134,7 @@ export class SynthesisModal extends Modal {
     const questionsEl = containerEl.createDiv('weaklog-synthesis-questions');
     questionsEl.style.marginBottom = '24px';
 
-    this.synthesisGuide.questions.forEach((question, index) => {
+    this.synthesisGuideData.questions.forEach((question, index) => {
       const questionEl = questionsEl.createDiv('weaklog-synthesis-question');
       questionEl.style.marginBottom = '20px';
 
@@ -170,6 +190,7 @@ export class SynthesisModal extends Modal {
     actionsEl.style.display = 'flex';
     actionsEl.style.justifyContent = 'space-between';
     actionsEl.style.gap = '8px';
+    actionsEl.style.marginTop = '20px';
 
     // Cancel button
     const cancelButton = actionsEl.createEl('button', {
@@ -178,6 +199,14 @@ export class SynthesisModal extends Modal {
     });
     cancelButton.style.flex = '1';
     cancelButton.addEventListener('click', () => this.close());
+
+    // AI Suggest Draft button
+    const suggestButton = actionsEl.createEl('button', {
+      text: 'AI Suggest Draft',
+      cls: 'weaklog-button-suggest',
+    });
+    suggestButton.style.flex = '1';
+    suggestButton.addEventListener('click', () => this.handleSuggestDraft());
 
     // Generate Draft button (primary)
     const generateButton = actionsEl.createEl('button', {
@@ -191,6 +220,97 @@ export class SynthesisModal extends Modal {
   // ========================================================================
   // Action Handlers
   // ========================================================================
+
+  /**
+   * Handle "AI Suggest Draft" action
+   * Generates AI-powered draft suggestion based on Q&A
+   */
+  private async handleSuggestDraft(): Promise<void> {
+    try {
+      // Validate: at least one answer required
+      if (this.answers.size === 0) {
+        new Notice('⚠️ Please answer at least one question first', 3000);
+        return;
+      }
+
+      // Disable buttons and show loading
+      this.setButtonsDisabled(true, 'Generating AI suggestion...', 'AI Suggest Draft');
+
+      console.log(`[Weaklog] Generating AI draft suggestion with ${this.answers.size} answers`);
+
+      // Build Q&A pairs
+      const qaList: QuestionAnswer[] = [];
+      this.synthesisGuideData.questions.forEach((question, index) => {
+        const answer = this.answers.get(index);
+        if (answer) {
+          qaList.push({ question, answer });
+        }
+      });
+
+      // Call AI to generate draft suggestion
+      const suggestion = await this.synthesisGuideInstance.generateDraftSuggestion(
+        this.originalContent,
+        this.triageResult,
+        qaList,
+        this.responseLanguage
+      );
+
+      // Store suggestion
+      this.aiSuggestedDraft = suggestion;
+
+      // Display suggestion
+      this.displaySuggestedDraft(suggestion);
+
+      new Notice('✓ AI draft suggestion generated', 3000);
+      console.log('[Weaklog] AI draft suggestion generated successfully');
+
+      this.setButtonsDisabled(false);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Weaklog] Failed to generate AI suggestion:', error);
+      new Notice(`❌ Failed to generate AI suggestion: ${errorMessage}`, 5000);
+      this.setButtonsDisabled(false);
+    }
+  }
+
+  /**
+   * Display AI suggested draft in the modal
+   */
+  private displaySuggestedDraft(suggestion: string): void {
+    if (!this.suggestedDraftEl) return;
+
+    this.suggestedDraftEl.empty();
+    this.suggestedDraftEl.style.display = 'block';
+
+    // Header
+    const headerEl = this.suggestedDraftEl.createEl('h3', {
+      text: '✨ AI Suggested Draft',
+    });
+    headerEl.style.marginTop = '0';
+    headerEl.style.marginBottom = '12px';
+    headerEl.style.color = 'var(--text-accent)';
+
+    // Info text
+    const infoEl = this.suggestedDraftEl.createDiv();
+    infoEl.style.fontSize = '13px';
+    infoEl.style.color = 'var(--text-muted)';
+    infoEl.style.marginBottom = '12px';
+    infoEl.textContent = 'This AI-generated draft will be included in your final document. You can edit it after clicking "Generate Draft".';
+
+    // Draft content
+    const contentEl = this.suggestedDraftEl.createDiv('weaklog-draft-preview');
+    contentEl.style.padding = '12px';
+    contentEl.style.backgroundColor = 'var(--background-primary)';
+    contentEl.style.borderRadius = '4px';
+    contentEl.style.border = '1px solid var(--background-modifier-border)';
+    contentEl.style.whiteSpace = 'pre-wrap';
+    contentEl.style.fontSize = '14px';
+    contentEl.style.lineHeight = '1.6';
+    contentEl.style.maxHeight = '300px';
+    contentEl.style.overflowY = 'auto';
+    contentEl.textContent = suggestion;
+  }
 
   /**
    * Handle "Generate Draft" action
@@ -211,7 +331,7 @@ export class SynthesisModal extends Modal {
 
       // Build Q&A pairs
       const qaList: QuestionAnswer[] = [];
-      this.synthesisGuide.questions.forEach((question, index) => {
+      this.synthesisGuideData.questions.forEach((question: string, index: number) => {
         const answer = this.answers.get(index);
         if (answer) {
           qaList.push({ question, answer });
@@ -226,7 +346,7 @@ export class SynthesisModal extends Modal {
 
       // Update frontmatter with synthesis guide
       await this.fileManager.updateFrontmatter(this.file, {
-        synthesis_guide: JSON.stringify(this.synthesisGuide),
+        synthesis_guide: JSON.stringify(this.synthesisGuideData),
       });
 
       // Move to 04_Synthesized
@@ -289,10 +409,24 @@ export class SynthesisModal extends Modal {
     // Editable draft section
     parts.push('## Draft Content (Edit Below)\n');
     parts.push('');
-    parts.push('*Transform the above reflections into your final creative work...*\n');
-    parts.push('');
-    parts.push('<!-- Start writing your final draft here -->\n');
-    parts.push('');
+
+    // Include AI suggested draft if available
+    if (this.aiSuggestedDraft) {
+      parts.push('### AI Suggested Draft\n');
+      parts.push(this.aiSuggestedDraft);
+      parts.push('\n');
+      parts.push('---\n');
+      parts.push('');
+      parts.push('### Your Edited Version\n');
+      parts.push('');
+      parts.push('*Edit the AI suggestion above or write your own version below...*\n');
+      parts.push('');
+    } else {
+      parts.push('*Transform the above reflections into your final creative work...*\n');
+      parts.push('');
+      parts.push('<!-- Start writing your final draft here -->\n');
+      parts.push('');
+    }
 
     return parts.join('\n');
   }
@@ -305,12 +439,24 @@ export class SynthesisModal extends Modal {
    * Disable/enable all action buttons
    * Shows loading state during async operations
    */
-  private setButtonsDisabled(disabled: boolean, loadingText?: string): void {
+  private setButtonsDisabled(disabled: boolean, loadingText?: string, targetButtonText?: string): void {
     const buttons = this.contentEl.querySelectorAll('button');
     buttons.forEach((button) => {
-      (button as HTMLButtonElement).disabled = disabled;
-      if (disabled && loadingText && button.classList.contains('mod-cta')) {
-        button.textContent = loadingText;
+      const btn = button as HTMLButtonElement;
+      btn.disabled = disabled;
+
+      // Update button text for loading state
+      if (disabled && loadingText && targetButtonText && btn.textContent?.includes(targetButtonText)) {
+        btn.textContent = loadingText;
+      } else if (!disabled) {
+        // Restore original text
+        if (btn.classList.contains('weaklog-button-cancel')) {
+          btn.textContent = 'Cancel';
+        } else if (btn.classList.contains('weaklog-button-suggest')) {
+          btn.textContent = 'AI Suggest Draft';
+        } else if (btn.classList.contains('weaklog-button-generate')) {
+          btn.textContent = 'Generate Draft';
+        }
       }
     });
   }
