@@ -329,49 +329,47 @@ export class WeaklogSettingTab extends PluginSettingTab {
                           provider === 'gemini' ? 'Gemini Model' :
                           'Ollama Model';
 
-    new Setting(containerEl)
-      .setName(modelFieldName)
-      .setDesc('Model to use for AI analysis')
-      .addDropdown((dropdown) => {
-        if (provider === 'anthropic') {
-          dropdown
-            .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Recommended)')
-            .addOption('claude-3-5-sonnet-20240620', 'Claude 3.5 Sonnet (June)')
-            .addOption('claude-3-opus-20240229', 'Claude 3 Opus')
-            .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
-            .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku');
-        } else if (provider === 'openai') {
-          dropdown
-            .addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (Recommended)')
-            .addOption('gpt-4-0125-preview', 'GPT-4 Turbo (Jan)')
-            .addOption('gpt-4', 'GPT-4')
-            .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
-            .addOption('gpt-3.5-turbo-0125', 'GPT-3.5 Turbo (Jan)');
-        } else if (provider === 'gemini') {
-          dropdown
-            .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro (Recommended)')
-            .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash')
-            .addOption('gemini-pro', 'Gemini Pro')
-            .addOption('gemini-pro-vision', 'Gemini Pro Vision');
-        } else if (provider === 'ollama') {
-          dropdown
-            .addOption('llama2', 'Llama 2')
-            .addOption('llama2:13b', 'Llama 2 13B')
-            .addOption('mistral', 'Mistral')
-            .addOption('mixtral', 'Mixtral')
-            .addOption('codellama', 'Code Llama')
-            .addOption('phi', 'Phi');
-        }
+    // For Ollama, dynamically fetch models from server
+    if (provider === 'ollama') {
+      this.addOllamaModelDropdown(containerEl, modelFieldName);
+    } else {
+      // Static model lists for cloud providers
+      new Setting(containerEl)
+        .setName(modelFieldName)
+        .setDesc('Model to use for AI analysis')
+        .addDropdown((dropdown) => {
+          if (provider === 'anthropic') {
+            dropdown
+              .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Recommended)')
+              .addOption('claude-3-5-sonnet-20240620', 'Claude 3.5 Sonnet (June)')
+              .addOption('claude-3-opus-20240229', 'Claude 3 Opus')
+              .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
+              .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku');
+          } else if (provider === 'openai') {
+            dropdown
+              .addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (Recommended)')
+              .addOption('gpt-4-0125-preview', 'GPT-4 Turbo (Jan)')
+              .addOption('gpt-4', 'GPT-4')
+              .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
+              .addOption('gpt-3.5-turbo-0125', 'GPT-3.5 Turbo (Jan)');
+          } else if (provider === 'gemini') {
+            dropdown
+              .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro (Recommended)')
+              .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash')
+              .addOption('gemini-pro', 'Gemini Pro')
+              .addOption('gemini-pro-vision', 'Gemini Pro Vision');
+          }
 
-        dropdown
-          .setValue(this.plugin.settings.model)
-          .onChange(async (value) => {
-            this.plugin.settings.model = value;
-            await this.plugin.saveSettings();
-          });
+          dropdown
+            .setValue(this.plugin.settings.model)
+            .onChange(async (value) => {
+              this.plugin.settings.model = value;
+              await this.plugin.saveSettings();
+            });
 
-        return dropdown;
-      });
+          return dropdown;
+        });
+    }
 
     // Triage temperature
     new Setting(containerEl)
@@ -488,6 +486,105 @@ export class WeaklogSettingTab extends PluginSettingTab {
         return 'SecretStorage API';
       case 'data':
         return 'Unencrypted (data.json)';
+    }
+  }
+
+  /**
+   * Add Ollama model dropdown with dynamic model loading
+   * Fetches available models from Ollama server
+   */
+  private addOllamaModelDropdown(containerEl: HTMLElement, fieldName: string): void {
+    const setting = new Setting(containerEl)
+      .setName(fieldName)
+      .setDesc('Loading models from Ollama server...');
+
+    // Add dropdown with loading placeholder
+    setting.addDropdown((dropdown) => {
+      dropdown.addOption('', 'Loading...');
+      dropdown.setValue('');
+      dropdown.setDisabled(true);
+      return dropdown;
+    });
+
+    // Async load models
+    this.loadOllamaModels(setting);
+  }
+
+  /**
+   * Load available models from Ollama server
+   * Updates dropdown with fetched models or fallback list
+   */
+  private async loadOllamaModels(setting: Setting): Promise<void> {
+    try {
+      const endpoint = this.plugin.settings.ollamaEndpoint || 'http://localhost:11434';
+      const llmClient = LLMClient.createFromConfig('ollama', {
+        endpoint,
+        model: this.plugin.settings.model,
+      });
+
+      // Fetch available models from server
+      const models = await llmClient.getAvailableModels();
+
+      // Update setting description
+      setting.setDesc(`${models.length} models available from Ollama server`);
+
+      // Remove old dropdown and add new one with models
+      setting.clear();
+      setting.addDropdown((dropdown) => {
+        // Add all available models
+        for (const model of models) {
+          dropdown.addOption(model, model);
+        }
+
+        // Set current value or first model
+        const currentModel = this.plugin.settings.model;
+        if (models.includes(currentModel)) {
+          dropdown.setValue(currentModel);
+        } else if (models.length > 0) {
+          dropdown.setValue(models[0]);
+          this.plugin.settings.model = models[0];
+          this.plugin.saveSettings();
+        }
+
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.model = value;
+          await this.plugin.saveSettings();
+        });
+
+        return dropdown;
+      });
+
+      console.log(`[Weaklog] Loaded ${models.length} Ollama models`);
+
+    } catch (error) {
+      console.error('[Weaklog] Failed to load Ollama models:', error);
+
+      // Fallback to common models
+      const fallbackModels = [
+        'llama2',
+        'llama2:13b',
+        'mistral',
+        'mixtral',
+        'codellama',
+        'phi',
+      ];
+
+      setting.setDesc('⚠️ Could not connect to Ollama server. Using common models.');
+
+      setting.clear();
+      setting.addDropdown((dropdown) => {
+        for (const model of fallbackModels) {
+          dropdown.addOption(model, model);
+        }
+
+        dropdown.setValue(this.plugin.settings.model);
+        dropdown.onChange(async (value) => {
+          this.plugin.settings.model = value;
+          await this.plugin.saveSettings();
+        });
+
+        return dropdown;
+      });
     }
   }
 }
