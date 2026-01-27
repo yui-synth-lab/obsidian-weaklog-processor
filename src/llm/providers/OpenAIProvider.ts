@@ -43,6 +43,7 @@ export class OpenAIProvider implements ILLMProvider {
     try {
       this.client = new OpenAI({
         apiKey: this.apiKey,
+        dangerouslyAllowBrowser: true, // Safe for Obsidian (Electron desktop app)
       });
       console.log('[Weaklog] OpenAI provider initialized');
     } catch (error) {
@@ -82,6 +83,11 @@ export class OpenAIProvider implements ILLMProvider {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second
 
+    // Check if this is a GPT-5 reasoning model (doesn't support temperature)
+    const isReasoningModel = this.model.toLowerCase().startsWith('gpt-5') ||
+                             this.model.toLowerCase().startsWith('o1') ||
+                             this.model.toLowerCase().startsWith('o3');
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[Weaklog] OpenAI API call attempt ${attempt}/${maxRetries}`);
@@ -91,11 +97,10 @@ export class OpenAIProvider implements ILLMProvider {
           setTimeout(() => reject(new Error('API request timeout')), timeoutMs);
         });
 
-        // Create API call promise
-        const apiPromise = this.client!.chat.completions.create({
+        // Build API parameters (reasoning models don't support temperature)
+        const apiParams: any = {
           model: this.model,
-          max_tokens: maxTokens,
-          temperature: temperature,
+          max_completion_tokens: maxTokens, // GPT-5+ uses max_completion_tokens instead of max_tokens
           messages: [
             {
               role: 'system',
@@ -106,7 +111,15 @@ export class OpenAIProvider implements ILLMProvider {
               content: userPrompt,
             },
           ],
-        });
+        };
+
+        // Only add temperature for non-reasoning models
+        if (!isReasoningModel) {
+          apiParams.temperature = temperature;
+        }
+
+        // Create API call promise
+        const apiPromise = this.client!.chat.completions.create(apiParams);
 
         // Race between API call and timeout
         const response = await Promise.race([apiPromise, timeoutPromise]);
@@ -196,11 +209,10 @@ export class OpenAIProvider implements ILLMProvider {
 
       console.log('[Weaklog] Testing OpenAI API connection');
 
-      // Make minimal API call
+      // Make minimal API call (use minimal parameters for compatibility)
       await this.client!.chat.completions.create({
         model: this.model,
-        max_tokens: 5,
-        temperature: 0,
+        max_completion_tokens: 5, // GPT-5+ uses max_completion_tokens
         messages: [
           {
             role: 'user',

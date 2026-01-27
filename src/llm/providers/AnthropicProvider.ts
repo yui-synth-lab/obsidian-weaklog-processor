@@ -43,6 +43,7 @@ export class AnthropicProvider implements ILLMProvider {
     try {
       this.client = new Anthropic({
         apiKey: this.apiKey,
+        dangerouslyAllowBrowser: true, // Safe for Obsidian (Electron desktop app)
       });
       console.log('[Weaklog] Anthropic provider initialized');
     } catch (error) {
