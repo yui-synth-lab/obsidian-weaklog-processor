@@ -1,0 +1,155 @@
+/* Weaklog Processor Plugin Styles */
+
+/* Modal styling */
+.weaklog-modal {
+  padding: 20px;
+}
+
+.weaklog-modal h2 {
+  margin-bottom: 16px;
+}
+
+/* Triage result display */
+.weaklog-triage-result {
+  margin: 16px 0;
+}
+
+.weaklog-triage-checks {
+  margin: 12px 0;
+}
+
+.weaklog-triage-check {
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-left: 3px solid var(--interactive-accent);
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+}
+
+.weaklog-triage-check.fail {
+  border-left-color: var(--text-error);
+}
+
+.weaklog-triage-check-header {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.weaklog-triage-check-icon {
+  margin-right: 8px;
+  font-size: 1.2em;
+}
+
+.weaklog-triage-check-reason {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-left: 24px;
+}
+
+.weaklog-core-question {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: var(--background-primary-alt);
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 1.1em;
+}
+
+.weaklog-score {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 600;
+}
+
+/* Synthesis modal */
+.weaklog-synthesis-questions {
+  margin: 16px 0;
+}
+
+.weaklog-synthesis-question {
+  margin: 12px 0;
+  padding: 12px;
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+}
+
+.weaklog-synthesis-question-text {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.weaklog-synthesis-answer {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-text);
+  resize: vertical;
+}
+
+.weaklog-synthesis-answer:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+/* Button styling */
+.weaklog-button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.weaklog-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.weaklog-button-primary {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.weaklog-button-primary:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.weaklog-button-secondary {
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+}
+
+.weaklog-button-secondary:hover {
+  background-color: var(--background-secondary-alt);
+}
+
+.weaklog-button-danger {
+  background-color: var(--text-error);
+  color: var(--text-on-accent);
+}
+
+.weaklog-button-danger:hover {
+  opacity: 0.9;
+}
+
+/* Settings tab */
+.weaklog-settings-header {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.9em;
+}

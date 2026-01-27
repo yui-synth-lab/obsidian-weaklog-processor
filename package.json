@@ -1,0 +1,32 @@
+{
+  "name": "obsidian-weaklog-processor",
+  "version": "1.0.0",
+  "description": "Transform weakness into creative works through the Minimum Protocol",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "weaklog",
+    "llm",
+    "ai"
+  ],
+  "author": "Yui Protocol Project",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.0.10",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "esbuild": "^0.27.2",
+    "obsidian": "^1.11.4",
+    "tslib": "^2.6.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0"
+  }
+}

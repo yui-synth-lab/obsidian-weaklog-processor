@@ -1,0 +1,10 @@
+{
+  "id": "weaklog-processor",
+  "name": "Weaklog Processor",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Transform weakness into creative works through the Minimum Protocol",
+  "author": "Yui Protocol Project",
+  "authorUrl": "https://github.com/yui-synth-lab",
+  "isDesktopOnly": false
+}
