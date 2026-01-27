@@ -38,13 +38,13 @@ git clone https://github.com/yui-synth-lab/obsidian-weaklog-processor.git
 cd obsidian-weaklog-processor
 
 # Install dependencies
-npm install
+pnpm install
 
 # Build plugin
-npm run build
+pnpm run build
 
 # Or watch for changes
-npm run dev
+pnpm run dev
 ```
 
 Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugins folder.
@@ -302,14 +302,14 @@ src/
 
 ```bash
 # Type checking
-npm run typecheck
+pnpm run typecheck
 
 # Build for production
-npm run build
+pnpm run build
 ```
 
 Test in Obsidian:
-1. Build plugin: `npm run build`
+1. Build plugin: `pnpm run build`
 2. Copy outputs to vault plugins folder
 3. Reload Obsidian: `Ctrl+R` / `Cmd+R`
 4. Check console: `Ctrl+Shift+I` / `Cmd+Option+I`
