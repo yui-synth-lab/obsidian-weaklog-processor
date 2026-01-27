@@ -27,6 +27,13 @@ export const DEFAULT_SETTINGS: WeaklogSettings = {
   model: 'claude-3-5-sonnet-20241022',
   triageTemperature: 0.3,
   synthesisTemperature: 0.7,
+
+  // Multi-provider defaults
+  llmProvider: 'anthropic',
+  anthropicApiKey: '',
+  openaiApiKey: '',
+  geminiApiKey: '',
+  ollamaEndpoint: 'http://localhost:11434',
 };
 
 // ============================================================================
@@ -57,29 +64,100 @@ export class WeaklogSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h2', { text: 'API Configuration' });
 
-    // Security status indicator
-    this.addSecurityStatus(containerEl);
-
-    // API Key input
+    // Provider selection dropdown
     new Setting(containerEl)
-      .setName('Anthropic API Key')
-      .setDesc('Your API key from console.anthropic.com')
-      .addText((text) => {
-        text
-          .setPlaceholder('sk-ant-...')
-          .setValue(this.plugin.settings.apiKey)
+      .setName('LLM Provider')
+      .setDesc('Choose your AI provider')
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption('anthropic', 'Anthropic (Claude)')
+          .addOption('openai', 'OpenAI (GPT)')
+          .addOption('gemini', 'Google (Gemini)')
+          .addOption('ollama', 'Ollama (Local)')
+          .setValue(this.plugin.settings.llmProvider)
           .onChange(async (value) => {
-            await this.plugin.saveApiKey(value.trim());
-          });
+            this.plugin.settings.llmProvider = value as any;
+            await this.plugin.saveSettings();
+            // Refresh UI to show/hide relevant fields
+            this.display();
+          })
+      );
 
-        // Mask API key for security
-        text.inputEl.type = 'password';
-      });
+    // Conditional fields based on provider
+    const provider = this.plugin.settings.llmProvider;
+
+    // Cloud providers: API key input
+    if (provider === 'anthropic' || provider === 'openai' || provider === 'gemini') {
+      // Security status indicator
+      this.addSecurityStatus(containerEl);
+
+      // Provider-specific API key field
+      const keyFieldName = provider === 'anthropic' ? 'Anthropic API Key' :
+                           provider === 'openai' ? 'OpenAI API Key' :
+                           'Gemini API Key';
+
+      const keyFieldDesc = provider === 'anthropic' ? 'Your API key from console.anthropic.com' :
+                          provider === 'openai' ? 'Your API key from platform.openai.com' :
+                          'Your API key from aistudio.google.com';
+
+      const keyFieldPlaceholder = provider === 'anthropic' ? 'sk-ant-...' :
+                                 provider === 'openai' ? 'sk-...' :
+                                 'AIza...';
+
+      const currentKey = provider === 'anthropic' ? (this.plugin.settings.anthropicApiKey || this.plugin.settings.apiKey) :
+                        provider === 'openai' ? this.plugin.settings.openaiApiKey :
+                        this.plugin.settings.geminiApiKey;
+
+      new Setting(containerEl)
+        .setName(keyFieldName)
+        .setDesc(keyFieldDesc)
+        .addText((text) => {
+          text
+            .setPlaceholder(keyFieldPlaceholder)
+            .setValue(currentKey || '')
+            .onChange(async (value) => {
+              const trimmedValue = value.trim();
+              if (provider === 'anthropic') {
+                await this.plugin.saveApiKey(trimmedValue);
+                this.plugin.settings.anthropicApiKey = trimmedValue;
+              } else if (provider === 'openai') {
+                this.plugin.settings.openaiApiKey = trimmedValue;
+              } else if (provider === 'gemini') {
+                this.plugin.settings.geminiApiKey = trimmedValue;
+              }
+              await this.plugin.saveSettings();
+            });
+
+          // Mask API key for security
+          text.inputEl.type = 'password';
+        });
+    }
+
+    // Ollama: endpoint input
+    if (provider === 'ollama') {
+      new Setting(containerEl)
+        .setName('Ollama Server Endpoint')
+        .setDesc('URL of your local Ollama server')
+        .addText((text) =>
+          text
+            .setPlaceholder('http://localhost:11434')
+            .setValue(this.plugin.settings.ollamaEndpoint || 'http://localhost:11434')
+            .onChange(async (value) => {
+              this.plugin.settings.ollamaEndpoint = value.trim();
+              await this.plugin.saveSettings();
+            })
+        );
+    }
 
     // Test connection button
+    const providerName = provider === 'anthropic' ? 'Anthropic' :
+                        provider === 'openai' ? 'OpenAI' :
+                        provider === 'gemini' ? 'Gemini' :
+                        'Ollama';
+
     new Setting(containerEl)
-      .setName('Test API Connection')
-      .setDesc('Verify your API key works with Anthropic')
+      .setName('Test Connection')
+      .setDesc(`Verify your connection to ${providerName}`)
       .addButton((button) =>
         button
           .setButtonText('Test Connection')
@@ -88,17 +166,52 @@ export class WeaklogSettingTab extends PluginSettingTab {
             button.setDisabled(true);
 
             try {
-              const apiKey = await this.plugin.getApiKey();
-              if (!apiKey) {
-                new Notice('⚠️ No API key configured', 5000);
+              // Get configuration based on provider
+              let llmClient: LLMClient;
+
+              if (provider === 'anthropic') {
+                const apiKey = this.plugin.settings.anthropicApiKey || this.plugin.settings.apiKey;
+                if (!apiKey) {
+                  new Notice('⚠️ No API key configured', 5000);
+                  return;
+                }
+                llmClient = LLMClient.createFromConfig('anthropic', {
+                  apiKey,
+                  model: this.plugin.settings.model,
+                });
+              } else if (provider === 'openai') {
+                const apiKey = this.plugin.settings.openaiApiKey;
+                if (!apiKey) {
+                  new Notice('⚠️ No OpenAI API key configured', 5000);
+                  return;
+                }
+                llmClient = LLMClient.createFromConfig('openai', {
+                  apiKey,
+                  model: this.plugin.settings.model,
+                });
+              } else if (provider === 'gemini') {
+                const apiKey = this.plugin.settings.geminiApiKey;
+                if (!apiKey) {
+                  new Notice('⚠️ No Gemini API key configured', 5000);
+                  return;
+                }
+                llmClient = LLMClient.createFromConfig('gemini', {
+                  apiKey,
+                  model: this.plugin.settings.model,
+                });
+              } else if (provider === 'ollama') {
+                const endpoint = this.plugin.settings.ollamaEndpoint || 'http://localhost:11434';
+                llmClient = LLMClient.createFromConfig('ollama', {
+                  endpoint,
+                  model: this.plugin.settings.model,
+                });
+              } else {
+                new Notice('⚠️ Unknown provider', 5000);
                 return;
               }
 
-              // Test connection with LLMClient
-              const llmClient = new LLMClient(apiKey, this.plugin.settings.model);
               await llmClient.testConnection();
-
-              new Notice('✓ Connection successful! API key is valid.', 3000);
+              new Notice('✓ Connection successful!', 3000);
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               new Notice(`❌ Connection test failed: ${errorMessage}`, 5000);
@@ -109,34 +222,36 @@ export class WeaklogSettingTab extends PluginSettingTab {
           })
       );
 
-    // Security notice
-    const securityNotice = containerEl.createDiv('weaklog-security-notice');
-    securityNotice.style.padding = '12px';
-    securityNotice.style.marginTop = '16px';
-    securityNotice.style.backgroundColor = 'var(--background-secondary)';
-    securityNotice.style.borderRadius = '6px';
-    securityNotice.style.borderLeft = '3px solid var(--text-warning)';
+    // Security notice (cloud providers only)
+    if (provider === 'anthropic' || provider === 'openai' || provider === 'gemini') {
+      const securityNotice = containerEl.createDiv('weaklog-security-notice');
+      securityNotice.style.padding = '12px';
+      securityNotice.style.marginTop = '16px';
+      securityNotice.style.backgroundColor = 'var(--background-secondary)';
+      securityNotice.style.borderRadius = '6px';
+      securityNotice.style.borderLeft = '3px solid var(--text-warning)';
 
-    const noticeTitle = securityNotice.createEl('div', {
-      text: '🔒 Security Best Practices',
-    });
-    noticeTitle.style.fontWeight = '600';
-    noticeTitle.style.marginBottom = '8px';
+      const noticeTitle = securityNotice.createEl('div', {
+        text: '🔒 Security Best Practices',
+      });
+      noticeTitle.style.fontWeight = '600';
+      noticeTitle.style.marginBottom = '8px';
 
-    const noticeList = securityNotice.createEl('ul');
-    noticeList.style.margin = '0';
-    noticeList.style.paddingLeft = '20px';
-    noticeList.style.fontSize = '0.9em';
+      const noticeList = securityNotice.createEl('ul');
+      noticeList.style.margin = '0';
+      noticeList.style.paddingLeft = '20px';
+      noticeList.style.fontSize = '0.9em';
 
-    noticeList.createEl('li', {
-      text: 'Recommended: Use environment variable WEAKLOG_API_KEY',
-    });
-    noticeList.createEl('li', {
-      text: 'Data stored locally except API requests to Anthropic',
-    });
-    noticeList.createEl('li', {
-      text: 'No telemetry or analytics',
-    });
+      noticeList.createEl('li', {
+        text: 'Recommended: Use environment variable WEAKLOG_API_KEY',
+      });
+      noticeList.createEl('li', {
+        text: `Data stored locally except API requests to ${providerName}`,
+      });
+      noticeList.createEl('li', {
+        text: 'No telemetry or analytics',
+      });
+    }
 
     // ========================================================================
     // Section 2: Workflow Settings
@@ -208,21 +323,55 @@ export class WeaklogSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h2', { text: 'Advanced Settings' });
 
-    // Model selection
+    // Model selection - provider-specific
+    const modelFieldName = provider === 'anthropic' ? 'Claude Model' :
+                          provider === 'openai' ? 'GPT Model' :
+                          provider === 'gemini' ? 'Gemini Model' :
+                          'Ollama Model';
+
     new Setting(containerEl)
-      .setName('Claude Model')
+      .setName(modelFieldName)
       .setDesc('Model to use for AI analysis')
-      .addDropdown((dropdown) =>
+      .addDropdown((dropdown) => {
+        if (provider === 'anthropic') {
+          dropdown
+            .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Recommended)')
+            .addOption('claude-3-5-sonnet-20240620', 'Claude 3.5 Sonnet (June)')
+            .addOption('claude-3-opus-20240229', 'Claude 3 Opus')
+            .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
+            .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku');
+        } else if (provider === 'openai') {
+          dropdown
+            .addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (Recommended)')
+            .addOption('gpt-4-0125-preview', 'GPT-4 Turbo (Jan)')
+            .addOption('gpt-4', 'GPT-4')
+            .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
+            .addOption('gpt-3.5-turbo-0125', 'GPT-3.5 Turbo (Jan)');
+        } else if (provider === 'gemini') {
+          dropdown
+            .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro (Recommended)')
+            .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash')
+            .addOption('gemini-pro', 'Gemini Pro')
+            .addOption('gemini-pro-vision', 'Gemini Pro Vision');
+        } else if (provider === 'ollama') {
+          dropdown
+            .addOption('llama2', 'Llama 2')
+            .addOption('llama2:13b', 'Llama 2 13B')
+            .addOption('mistral', 'Mistral')
+            .addOption('mixtral', 'Mixtral')
+            .addOption('codellama', 'Code Llama')
+            .addOption('phi', 'Phi');
+        }
+
         dropdown
-          .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Recommended)')
-          .addOption('claude-3-opus-20240229', 'Claude 3 Opus')
-          .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
           .setValue(this.plugin.settings.model)
           .onChange(async (value) => {
             this.plugin.settings.model = value;
             await this.plugin.saveSettings();
-          })
-      );
+          });
+
+        return dropdown;
+      });
 
     // Triage temperature
     new Setting(containerEl)

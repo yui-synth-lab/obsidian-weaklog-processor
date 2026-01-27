@@ -158,6 +158,90 @@ export default class WeaklogPlugin extends Plugin {
     console.log('[Weaklog] API key saved to data.json (unencrypted)');
   }
 
+  /**
+   * Get configured LLM client based on current provider settings
+   * Supports environment variable WEAKLOG_API_KEY for all providers
+   *
+   * Priority for API keys:
+   * 1. Environment variable WEAKLOG_API_KEY (highest priority)
+   * 2. Provider-specific settings (anthropicApiKey, openaiApiKey, etc.)
+   * 3. Legacy apiKey field (Anthropic only)
+   *
+   * @returns Configured and initialized LLMClient
+   * @throws Error if provider not configured or API key missing
+   */
+  async getLLMClient(): Promise<LLMClient> {
+    const provider = this.settings.llmProvider;
+
+    // Check environment variable first (universal for all providers)
+    const envKey = typeof process !== 'undefined' && process.env?.WEAKLOG_API_KEY
+      ? process.env.WEAKLOG_API_KEY
+      : null;
+
+    let llmClient: LLMClient;
+
+    switch (provider) {
+      case 'anthropic': {
+        const apiKey = envKey || this.settings.anthropicApiKey || this.settings.apiKey;
+        if (!apiKey) {
+          throw new Error('Anthropic API key not configured. Please set WEAKLOG_API_KEY environment variable or configure in settings.');
+        }
+        llmClient = LLMClient.createFromConfig('anthropic', {
+          apiKey,
+          model: this.settings.model,
+        });
+        break;
+      }
+
+      case 'openai': {
+        const apiKey = envKey || this.settings.openaiApiKey;
+        if (!apiKey) {
+          throw new Error('OpenAI API key not configured. Please set WEAKLOG_API_KEY environment variable or configure in settings.');
+        }
+        llmClient = LLMClient.createFromConfig('openai', {
+          apiKey,
+          model: this.settings.model,
+        });
+        break;
+      }
+
+      case 'gemini': {
+        const apiKey = envKey || this.settings.geminiApiKey;
+        if (!apiKey) {
+          throw new Error('Gemini API key not configured. Please set WEAKLOG_API_KEY environment variable or configure in settings.');
+        }
+        llmClient = LLMClient.createFromConfig('gemini', {
+          apiKey,
+          model: this.settings.model,
+        });
+        break;
+      }
+
+      case 'ollama': {
+        const endpoint = this.settings.ollamaEndpoint || 'http://localhost:11434';
+        llmClient = LLMClient.createFromConfig('ollama', {
+          endpoint,
+          model: this.settings.model,
+        });
+        break;
+      }
+
+      default:
+        throw new Error(`Unknown LLM provider: ${provider}`);
+    }
+
+    // Initialize the client
+    llmClient.initialize();
+
+    if (envKey) {
+      console.log(`[Weaklog] Using ${provider} provider with environment variable WEAKLOG_API_KEY`);
+    } else {
+      console.log(`[Weaklog] Using ${provider} provider with settings-based configuration`);
+    }
+
+    return llmClient;
+  }
+
   // ========================================================================
   // Folder Structure Management
   // ========================================================================
@@ -300,13 +384,6 @@ export default class WeaklogPlugin extends Plugin {
    */
   private async handleTriageCommand(file: any): Promise<void> {
     try {
-      // Validate API key
-      const apiKey = await this.getApiKey();
-      if (!apiKey) {
-        new Notice('⚠️ Please configure your Anthropic API key in settings', 5000);
-        return;
-      }
-
       // Read entry
       const entry = await this.fileManager.readWeaklogEntry(file);
       if (!entry) {
@@ -318,9 +395,8 @@ export default class WeaklogPlugin extends Plugin {
       const loadingNotice = new Notice('🤖 Analyzing entry with AI...', 0);
 
       try {
-        // Initialize LLM client
-        const llmClient = new LLMClient(apiKey, this.settings.model);
-        llmClient.initialize();
+        // Get configured LLM client
+        const llmClient = await this.getLLMClient();
 
         // Analyze with triage
         const analyzer = new TriageAnalyzer(llmClient, this.settings.triageTemperature);
@@ -357,13 +433,6 @@ export default class WeaklogPlugin extends Plugin {
    */
   private async handleSynthesizeCommand(file: any): Promise<void> {
     try {
-      // Validate API key
-      const apiKey = await this.getApiKey();
-      if (!apiKey) {
-        new Notice('⚠️ Please configure your Anthropic API key in settings', 5000);
-        return;
-      }
-
       // Read entry
       const entry = await this.fileManager.readWeaklogEntry(file);
       if (!entry) {
@@ -382,9 +451,8 @@ export default class WeaklogPlugin extends Plugin {
       const loadingNotice = new Notice('🤖 Generating synthesis questions...', 0);
 
       try {
-        // Initialize LLM client
-        const llmClient = new LLMClient(apiKey, this.settings.model);
-        llmClient.initialize();
+        // Get configured LLM client
+        const llmClient = await this.getLLMClient();
 
         // Generate synthesis questions
         const synthesisGuide = new SynthesisGuide(llmClient, this.settings.synthesisTemperature);

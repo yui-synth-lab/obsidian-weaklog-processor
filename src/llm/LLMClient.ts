@@ -1,291 +1,173 @@
 /**
- * LLMClient - Anthropic API wrapper
+ * LLMClient - Multi-provider LLM client factory
  *
- * Handles all communication with Anthropic's Claude API:
- * - API initialization with key validation
- * - Retry logic with exponential backoff
- * - Timeout handling
- * - Error sanitization for security
- * - Connection testing
+ * Provides unified interface for multiple LLM providers:
+ * - Anthropic (Claude)
+ * - OpenAI (GPT)
+ * - Google (Gemini)
+ * - Ollama (Local models)
+ * - LLama.cpp (Local server)
+ *
+ * Uses factory pattern to instantiate appropriate provider
+ * based on configuration.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { ILLMProvider, ProviderConfig } from './providers/ILLMProvider';
+import { AnthropicProvider } from './providers/AnthropicProvider';
+import { OpenAIProvider } from './providers/OpenAIProvider';
+import { GeminiProvider } from './providers/GeminiProvider';
+import { OllamaProvider } from './providers/OllamaProvider';
 import { LLMCallOptions } from '../types';
 
 /**
- * LLMClient class
- * Provides robust, secure API communication with Anthropic Claude
+ * LLMClient - Main client class with provider abstraction
+ * Delegates all operations to underlying provider
  */
 export class LLMClient {
-  private client: Anthropic | null = null;
-  private apiKey: string;
-  private model: string;
+  private provider: ILLMProvider;
 
+  /**
+   * Legacy constructor for backward compatibility
+   * Creates Anthropic provider with given API key and model
+   *
+   * @param apiKey - Anthropic API key
+   * @param model - Claude model identifier
+   */
   constructor(apiKey: string, model: string) {
-    this.apiKey = apiKey;
-    this.model = model;
+    this.provider = new AnthropicProvider(apiKey, model);
   }
 
   // ========================================================================
-  // Initialization
+  // Factory Methods
   // ========================================================================
 
   /**
-   * Initialize Anthropic client
-   * Call before making API requests
+   * Create LLMClient from provider type and configuration
+   * Factory method that instantiates appropriate provider
+   *
+   * @param providerType - Type of provider to use
+   * @param config - Provider configuration
+   * @returns Configured LLMClient instance
+   */
+  static createFromConfig(
+    providerType: string,
+    config: ProviderConfig
+  ): LLMClient {
+    let provider: ILLMProvider;
+
+    switch (providerType.toLowerCase()) {
+      case 'anthropic':
+        if (!config.apiKey) {
+          throw new Error('Anthropic provider requires API key');
+        }
+        provider = new AnthropicProvider(config.apiKey, config.model);
+        break;
+
+      case 'openai':
+        if (!config.apiKey) {
+          throw new Error('OpenAI provider requires API key');
+        }
+        provider = new OpenAIProvider(config.apiKey, config.model);
+        break;
+
+      case 'gemini':
+        if (!config.apiKey) {
+          throw new Error('Gemini provider requires API key');
+        }
+        provider = new GeminiProvider(config.apiKey, config.model);
+        break;
+
+      case 'ollama':
+        if (!config.endpoint) {
+          throw new Error('Ollama provider requires endpoint');
+        }
+        provider = new OllamaProvider(config.endpoint, config.model);
+        break;
+
+      default:
+        throw new Error(`Unknown provider type: ${providerType}`);
+    }
+
+    const client = Object.create(LLMClient.prototype);
+    client.provider = provider;
+    return client;
+  }
+
+  // ========================================================================
+  // Provider Delegation Methods
+  // ========================================================================
+
+  /**
+   * Initialize the underlying provider
+   * Must be called before making API requests
    */
   initialize(): void {
-    if (!this.apiKey || this.apiKey.trim().length === 0) {
-      throw new Error('API key is required');
-    }
-
-    try {
-      this.client = new Anthropic({
-        apiKey: this.apiKey,
-      });
-      console.log('[Weaklog] LLM client initialized');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to initialize LLM client: ${errorMessage}`);
-    }
+    this.provider.initialize();
   }
 
-  // ========================================================================
-  // API Communication
-  // ========================================================================
-
   /**
-   * Call Anthropic API with retry logic
-   * Implements exponential backoff for transient errors
+   * Call LLM API via provider
    *
-   * @param systemPrompt - System instruction for Claude
-   * @param userPrompt - User message content
-   * @param options - Temperature, max tokens, timeout
-   * @returns API response text
+   * @param systemPrompt - System instruction
+   * @param userPrompt - User message
+   * @param options - Call options (temperature, tokens, timeout)
+   * @returns LLM response text
    */
   async callAPI(
     systemPrompt: string,
     userPrompt: string,
-    options: LLMCallOptions = {}
+    options?: LLMCallOptions
   ): Promise<string> {
-    if (!this.client) {
-      this.initialize();
-    }
-
-    const {
-      temperature = 0.5,
-      maxTokens = 1000,
-      timeoutMs = 30000,
-    } = options;
-
-    const maxRetries = 3;
-    const baseDelay = 1000; // 1 second
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`[Weaklog] API call attempt ${attempt}/${maxRetries}`);
-
-        // Create timeout promise
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('API request timeout')), timeoutMs);
-        });
-
-        // Create API call promise
-        const apiPromise = this.client!.messages.create({
-          model: this.model,
-          max_tokens: maxTokens,
-          temperature: temperature,
-          system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: userPrompt,
-            },
-          ],
-        });
-
-        // Race between API call and timeout
-        const response = await Promise.race([apiPromise, timeoutPromise]);
-
-        // Extract text from response
-        if (response.content && response.content.length > 0) {
-          const textBlock = response.content.find((block: any) => block.type === 'text');
-          if (textBlock && 'text' in textBlock) {
-            console.log('[Weaklog] API call successful');
-            return textBlock.text;
-          }
-        }
-
-        throw new Error('No text content in API response');
-
-      } catch (error) {
-        const errorMessage = this.sanitizeError(error);
-        console.error(`[Weaklog] API call attempt ${attempt} failed:`, errorMessage);
-
-        // Handle specific error types
-        if (error instanceof Error) {
-          // Auth errors - don't retry
-          if (error.message.includes('401') || error.message.includes('authentication')) {
-            throw new Error('Invalid API key. Please check your Anthropic API key in settings.');
-          }
-
-          // Rate limits - retry with longer backoff
-          if (error.message.includes('429') || error.message.includes('rate limit')) {
-            if (attempt === maxRetries) {
-              throw new Error('Rate limit exceeded. Please try again later.');
-            }
-
-            const delay = baseDelay * Math.pow(2, attempt) * 2; // Double backoff for rate limits
-            console.log(`[Weaklog] Rate limited, waiting ${delay}ms before retry`);
-            await this.sleep(delay);
-            continue;
-          }
-
-          // Timeout - retry with standard backoff
-          if (error.message.includes('timeout')) {
-            if (attempt === maxRetries) {
-              throw new Error('API request timed out. Please check your connection and try again.');
-            }
-
-            const delay = baseDelay * Math.pow(2, attempt - 1);
-            console.log(`[Weaklog] Timeout, waiting ${delay}ms before retry`);
-            await this.sleep(delay);
-            continue;
-          }
-        }
-
-        // Network or other transient errors - retry
-        if (attempt === maxRetries) {
-          throw new Error(`API call failed after ${maxRetries} attempts: ${errorMessage}`);
-        }
-
-        const delay = baseDelay * Math.pow(2, attempt - 1);
-        console.log(`[Weaklog] Waiting ${delay}ms before retry`);
-        await this.sleep(delay);
-      }
-    }
-
-    throw new Error('API call failed: Maximum retries exceeded');
+    return await this.provider.callAPI(systemPrompt, userPrompt, options);
   }
 
-  // ========================================================================
-  // Connection Testing
-  // ========================================================================
-
   /**
-   * Test API connection
-   * Makes minimal API call to validate key
-   * Used by settings UI
-   *
-   * @returns true if connection successful
+   * Test connection to LLM provider
+   * @returns true if successful
    * @throws Error with user-friendly message if failed
    */
   async testConnection(): Promise<boolean> {
-    try {
-      if (!this.client) {
-        this.initialize();
-      }
-
-      console.log('[Weaklog] Testing API connection');
-
-      // Make minimal API call
-      await this.client!.messages.create({
-        model: this.model,
-        max_tokens: 10,
-        temperature: 0,
-        messages: [
-          {
-            role: 'user',
-            content: 'Test',
-          },
-        ],
-      });
-
-      console.log('[Weaklog] API connection test successful');
-      return true;
-
-    } catch (error) {
-      const errorMessage = this.sanitizeError(error);
-      console.error('[Weaklog] API connection test failed:', errorMessage);
-
-      // Provide user-friendly error messages
-      if (error instanceof Error) {
-        if (error.message.includes('401') || error.message.includes('authentication')) {
-          throw new Error('Invalid API key. Please check your Anthropic API key.');
-        }
-
-        if (error.message.includes('429') || error.message.includes('rate limit')) {
-          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-        }
-
-        if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
-          throw new Error('Network error. Please check your internet connection.');
-        }
-      }
-
-      throw new Error(`Connection test failed: ${errorMessage}`);
-    }
+    return await this.provider.testConnection();
   }
 
-  // ========================================================================
-  // Utility Methods
-  // ========================================================================
-
   /**
-   * Sleep for specified milliseconds
-   * Used for retry backoff
-   *
-   * @param ms - Milliseconds to sleep
+   * Get available models for current provider
+   * @returns Array of model identifiers
    */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  getAvailableModels(): string[] | Promise<string[]> {
+    return this.provider.getAvailableModels();
   }
 
   /**
-   * Sanitize error messages to remove sensitive data
-   * Never expose API keys or sensitive information
-   *
-   * @param error - Error to sanitize
-   * @returns Safe error message
-   */
-  private sanitizeError(error: unknown): string {
-    if (error instanceof Error) {
-      let message = error.message;
-
-      // Remove any API keys (sk-ant-...)
-      message = message.replace(/sk-ant-[a-zA-Z0-9-_]+/g, '[API_KEY_REDACTED]');
-
-      // Remove any authorization headers
-      message = message.replace(/authorization:?\s*[^\s]+/gi, 'authorization: [REDACTED]');
-
-      return message;
-    }
-
-    return 'Unknown error';
-  }
-
-  /**
-   * Check if client is initialized
-   * @returns true if client ready to use
+   * Check if provider is initialized
+   * @returns true if ready
    */
   isInitialized(): boolean {
-    return this.client !== null;
+    return this.provider.isInitialized();
   }
 
   /**
-   * Get current model
-   * @returns Model identifier
+   * Get current model identifier
+   * @returns Model name
    */
   getModel(): string {
-    return this.model;
+    return this.provider.getModel();
   }
 
   /**
-   * Update model
-   * @param model - New model to use
+   * Update model to use
+   * @param model - New model identifier
    */
   setModel(model: string): void {
-    this.model = model;
-    console.log(`[Weaklog] Model updated to ${model}`);
+    this.provider.setModel(model);
+  }
+
+  /**
+   * Get underlying provider instance
+   * For advanced use cases
+   * @returns Current provider
+   */
+  getProvider(): ILLMProvider {
+    return this.provider;
   }
 }

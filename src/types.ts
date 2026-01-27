@@ -7,6 +7,20 @@
  */
 
 // ============================================================================
+// LLM Provider Types
+// ============================================================================
+
+/**
+ * Supported LLM provider types
+ * Determines which AI service to use for triage and synthesis
+ */
+export type LLMProviderType =
+  | 'anthropic'  // Anthropic Claude (cloud)
+  | 'openai'     // OpenAI GPT (cloud)
+  | 'gemini'     // Google Gemini (cloud)
+  | 'ollama';    // Ollama (local)
+
+// ============================================================================
 // Workflow Status Types
 // ============================================================================
 
@@ -131,6 +145,7 @@ export interface WeaklogSettings {
   /**
    * Anthropic API key (optional, may be in environment variable or SecretStorage)
    * @security Stored unencrypted in data.json - recommend environment variable
+   * @deprecated Use provider-specific keys (anthropicApiKey, openaiApiKey, etc.)
    */
   apiKey: string;
 
@@ -148,6 +163,25 @@ export interface WeaklogSettings {
 
   /** Temperature for synthesis (0.0-1.0, default: 0.7 for creativity) */
   synthesisTemperature: number;
+
+  // ========================================================================
+  // Multi-Provider Settings
+  // ========================================================================
+
+  /** Selected LLM provider (default: 'anthropic') */
+  llmProvider: LLMProviderType;
+
+  /** Anthropic API key (for backward compatibility with apiKey) */
+  anthropicApiKey?: string;
+
+  /** OpenAI API key */
+  openaiApiKey?: string;
+
+  /** Google Gemini API key */
+  geminiApiKey?: string;
+
+  /** Ollama server endpoint (default: 'http://localhost:11434') */
+  ollamaEndpoint?: string;
 }
 
 // ============================================================================

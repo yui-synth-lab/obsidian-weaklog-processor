@@ -14,7 +14,8 @@ Weaklog Processor guides you through a 5-step process:
 
 ## Features
 
-- **AI-Powered Analysis**: Uses Claude 3.5 Sonnet for objective evaluation
+- **Multi-LLM Provider Support**: Choose from Anthropic (Claude), OpenAI (GPT), or Google (Gemini)
+- **AI-Powered Analysis**: Objective evaluation with state-of-the-art language models
 - **Structured Workflow**: Organized folder structure for each stage
 - **Cooldown Management**: Automatic tracking of cooling periods
 - **Interactive Modals**: User-friendly interfaces for each step
@@ -51,9 +52,12 @@ Copy `main.js`, `manifest.json`, and `styles.css` to your vault's plugins folder
 ## Setup
 
 1. Open Settings → Weaklog Processor
-2. Enter your Anthropic API key
-3. Configure default cooldown period (default: 7 days)
-4. Set Weaklog folder path (default: "Weaklog")
+2. **Choose your LLM provider** (Anthropic, OpenAI, or Gemini)
+3. **Configure provider credentials**: Enter your API key for the selected provider
+4. Configure default cooldown period (default: 7 days)
+5. Set Weaklog folder path (default: "Weaklog")
+
+See [LLM Provider Configuration](#llm-provider-configuration) for detailed setup instructions.
 
 ## Usage
 
@@ -136,7 +140,110 @@ source ~/.bashrc
 
 **After setting environment variable**: Restart Obsidian to detect it.
 
+## LLM Provider Configuration
+
+Weaklog Processor supports multiple AI providers, giving you flexibility to choose based on your preferences, budget, or privacy requirements.
+
+### Supported Providers
+
+| Provider | Type | Best For | API Key Required |
+| -------- | ---- | -------- | ---------------- |
+| **Anthropic (Claude)** | Cloud | Most balanced, strong reasoning | Yes |
+| **OpenAI (GPT)** | Cloud | Fast, widely adopted | Yes |
+| **Google (Gemini)** | Cloud | Multimodal capabilities | Yes |
+
+### How to Switch Providers
+
+1. Open **Settings → Weaklog Processor**
+2. Under **API Configuration**, select your desired provider from the **LLM Provider** dropdown
+3. The UI will automatically update to show relevant configuration fields
+4. Enter your credentials (API key for cloud providers, endpoint for Ollama)
+5. Click **Test Connection** to verify setup
+6. Adjust the model selection in **Advanced Settings** if needed
+
+### Provider-Specific Setup
+
+#### Anthropic (Claude)
+
+**Get API Key**: <https://console.anthropic.com/>
+
+**Recommended Models**:
+
+- `claude-3-5-sonnet-20241022` (Default, best balance)
+- `claude-3-opus-20240229` (Highest quality, slower)
+- `claude-3-haiku-20240307` (Fastest, most economical)
+
+**Environment Variable**:
+
+```bash
+export WEAKLOG_API_KEY="sk-ant-..."
+```
+
+#### OpenAI (GPT)
+
+**Get API Key**: <https://platform.openai.com/>
+
+**Recommended Models**:
+
+- `gpt-4-turbo-preview` (Default, best quality)
+- `gpt-4` (Stable, reliable)
+- `gpt-3.5-turbo` (Fast, economical)
+
+**Environment Variable**:
+
+```bash
+export WEAKLOG_API_KEY="sk-..."
+```
+
+#### Google (Gemini)
+
+**Get API Key**: <https://aistudio.google.com/>
+
+**Recommended Models**:
+
+- `gemini-1.5-pro` (Default, best quality)
+- `gemini-1.5-flash` (Faster, lower cost)
+- `gemini-pro` (Standard)
+
+**Environment Variable**:
+
+```bash
+export WEAKLOG_API_KEY="AIza..."
+```
+
+### Universal Environment Variable
+
+All providers can use the **same environment variable** `WEAKLOG_API_KEY`:
+
+```bash
+# Works for any cloud provider (Anthropic, OpenAI, Gemini)
+export WEAKLOG_API_KEY="your-api-key-here"
+```
+
+When you switch providers in settings, the plugin will automatically use `WEAKLOG_API_KEY` if set, falling back to provider-specific settings if the environment variable is not available.
+
+**Priority**:
+
+1. Environment variable `WEAKLOG_API_KEY` (highest)
+2. Provider-specific setting (medium)
+3. Legacy `apiKey` setting for Anthropic (lowest)
+
+### Cost Comparison
+
+Approximate costs per 1M tokens (as of 2024):
+
+| Provider | Input | Output | Notes |
+| -------- | ----- | ------ | ----- |
+| Claude 3.5 Sonnet | $3 | $15 | Recommended |
+| GPT-4 Turbo | $10 | $30 | Higher cost |
+| GPT-3.5 Turbo | $0.50 | $1.50 | Most economical |
+| Gemini 1.5 Pro | $3.50 | $10.50 | Competitive |
+
+**Note**: Typical triage uses ~500-1000 tokens, synthesis uses ~1000-2000 tokens.
+
 ### Data Privacy
+
+
 
 - **Local-First Architecture**: All weaklog entries stay in your vault
 - **API Usage**: Only entry content sent to Anthropic for analysis (no metadata)
@@ -235,7 +342,7 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## Roadmap
 
-- [ ] Support for Gemini API
+- [x] Multi-LLM provider support (Anthropic, OpenAI, Gemini)
 - [ ] Batch processing for multiple entries
 - [ ] Custom triage criteria templates
 - [ ] Export to various formats (PDF, Markdown, HTML)
