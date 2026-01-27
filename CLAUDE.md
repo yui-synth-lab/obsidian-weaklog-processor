@@ -97,7 +97,7 @@ this.addCommand({
 
 ### API Configuration
 - **Provider**: Anthropic (Claude 3.5 Sonnet)
-- **Model**: `claude-3-5-sonnet-20241022`
+- **Model**: `claude-sonnet-4-5`
 - **API Key**: User-provided in settings (never hardcode)
 - **Timeout**: 30s for triage, 20s for synthesis
 

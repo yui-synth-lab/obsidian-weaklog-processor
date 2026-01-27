@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: WeaklogSettings = {
   apiKey: '',
   defaultCooldownDays: 7,
   weaklogFolderPath: 'Weaklog',
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-sonnet-4-5',
   triageTemperature: 0.3,
   synthesisTemperature: 0.7,
   responseLanguage: 'english',
@@ -341,24 +341,25 @@ export class WeaklogSettingTab extends PluginSettingTab {
         .addDropdown((dropdown) => {
           if (provider === 'anthropic') {
             dropdown
-              .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Recommended)')
-              .addOption('claude-3-5-sonnet-20240620', 'Claude 3.5 Sonnet (June)')
-              .addOption('claude-3-opus-20240229', 'Claude 3 Opus')
-              .addOption('claude-3-sonnet-20240229', 'Claude 3 Sonnet')
-              .addOption('claude-3-haiku-20240307', 'Claude 3 Haiku');
+              .addOption('claude-sonnet-4-5', 'Claude 4.5 Sonnet (Recommended)')
+              .addOption('claude-opus-4-5', 'Claude 4.5 Opus')
+              .addOption('claude-haiku-4-5', 'Claude 4.5 Haiku')
+              .addOption('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet')
+              .addOption('claude-3-opus-20240229', 'Claude 3 Opus');
           } else if (provider === 'openai') {
             dropdown
-              .addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (Recommended)')
-              .addOption('gpt-4-0125-preview', 'GPT-4 Turbo (Jan)')
-              .addOption('gpt-4', 'GPT-4')
-              .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo')
-              .addOption('gpt-3.5-turbo-0125', 'GPT-3.5 Turbo (Jan)');
+              .addOption('gpt-5.2', 'GPT-5.2 (Recommended)')
+              .addOption('gpt-5', 'GPT-5')
+              .addOption('gpt-5-mini', 'GPT-5 Mini')
+              .addOption('gpt-4-turbo-preview', 'GPT-4 Turbo')
+              .addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo');
           } else if (provider === 'gemini') {
             dropdown
-              .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro (Recommended)')
-              .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash')
-              .addOption('gemini-pro', 'Gemini Pro')
-              .addOption('gemini-pro-vision', 'Gemini Pro Vision');
+              .addOption('gemini-3-pro', 'Gemini 3 Pro (Recommended)')
+              .addOption('gemini-3-flash', 'Gemini 3 Flash')
+              .addOption('gemini-2.0-flash', 'Gemini 2.0 Flash')
+              .addOption('gemini-1.5-pro', 'Gemini 1.5 Pro')
+              .addOption('gemini-1.5-flash', 'Gemini 1.5 Flash');
           }
 
           dropdown

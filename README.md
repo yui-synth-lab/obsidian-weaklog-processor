@@ -169,9 +169,9 @@ Weaklog Processor supports multiple AI providers, giving you flexibility to choo
 
 **Recommended Models**:
 
-- `claude-3-5-sonnet-20241022` (Default, best balance)
-- `claude-3-opus-20240229` (Highest quality, slower)
-- `claude-3-haiku-20240307` (Fastest, most economical)
+- `claude-sonnet-4-5` (Default, best balance)
+- `claude-opus-4-5` (Highest quality, slower)
+- `claude-haiku-4-5` (Fastest, most economical)
 
 **Environment Variable**:
 
@@ -185,9 +185,9 @@ export WEAKLOG_API_KEY="sk-ant-..."
 
 **Recommended Models**:
 
-- `gpt-4-turbo-preview` (Default, best quality)
-- `gpt-4` (Stable, reliable)
-- `gpt-3.5-turbo` (Fast, economical)
+- `gpt-5.2` (Default, best quality)
+- `gpt-5` (Stable, reliable)
+- `gpt-5-mini` (Fast, economical)
 
 **Environment Variable**:
 
@@ -201,9 +201,9 @@ export WEAKLOG_API_KEY="sk-..."
 
 **Recommended Models**:
 
-- `gemini-1.5-pro` (Default, best quality)
-- `gemini-1.5-flash` (Faster, lower cost)
-- `gemini-pro` (Standard)
+- `gemini-3-pro` (Default, best quality)
+- `gemini-3-flash` (Faster, lower cost)
+- `gemini-2.0-flash` (Standard/Previous Gen)
 
 **Environment Variable**:
 
@@ -230,14 +230,14 @@ When you switch providers in settings, the plugin will automatically use `WEAKLO
 
 ### Cost Comparison
 
-Approximate costs per 1M tokens (as of 2024):
+Approximate costs per 1M tokens (as of 2026):
 
 | Provider | Input | Output | Notes |
 | -------- | ----- | ------ | ----- |
-| Claude 3.5 Sonnet | $3 | $15 | Recommended |
-| GPT-4 Turbo | $10 | $30 | Higher cost |
-| GPT-3.5 Turbo | $0.50 | $1.50 | Most economical |
-| Gemini 1.5 Pro | $3.50 | $10.50 | Competitive |
+| Claude Sonnet 4.5 | Check Site | Check Site | Recommended |
+| GPT-5.2 | Check Site | Check Site | Flagship |
+| GPT-5 Mini | Check Site | Check Site | Most economical |
+| Gemini 3 Pro | Check Site | Check Site | Competitive |
 
 **Note**: Typical triage uses ~500-1000 tokens, synthesis uses ~1000-2000 tokens.
 

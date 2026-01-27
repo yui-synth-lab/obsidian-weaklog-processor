@@ -249,14 +249,12 @@ export class OpenAIProvider implements ILLMProvider {
    */
   getAvailableModels(): string[] {
     return [
+      'gpt-5.2',
+      'gpt-5',
+      'gpt-5-mini',
       'gpt-4-turbo-preview',
-      'gpt-4-0125-preview',
-      'gpt-4-1106-preview',
       'gpt-4',
-      'gpt-4-0613',
       'gpt-3.5-turbo',
-      'gpt-3.5-turbo-0125',
-      'gpt-3.5-turbo-1106',
     ];
   }
 

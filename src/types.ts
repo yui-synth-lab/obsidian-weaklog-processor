@@ -163,7 +163,7 @@ export interface WeaklogSettings {
   /** Vault folder path for weaklog files (default: "Weaklog") */
   weaklogFolderPath: string;
 
-  /** Claude model to use (default: "claude-3-5-sonnet-20241022") */
+  /** Claude model to use (default: "claude-sonnet-4-5") */
   model: string;
 
   /** Temperature for triage (0.0-1.0, default: 0.3 for objectivity) */
