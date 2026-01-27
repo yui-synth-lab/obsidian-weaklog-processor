@@ -18,6 +18,7 @@ const context = await esbuild.context({
   external: [
     'obsidian',
     'electron',
+    '@anthropic-ai/sdk',
     '@codemirror/autocomplete',
     '@codemirror/collab',
     '@codemirror/commands',

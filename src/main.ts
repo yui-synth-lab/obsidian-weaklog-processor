@@ -10,6 +10,12 @@
 import { Notice, Plugin, normalizePath } from 'obsidian';
 import { WeaklogSettings } from './types';
 import { DEFAULT_SETTINGS, WeaklogSettingTab } from './settings';
+import { FileManager } from './managers/FileManager';
+import { CooldownManager } from './managers/CooldownManager';
+import { LLMClient } from './llm/LLMClient';
+import { TriageAnalyzer } from './llm/TriageAnalyzer';
+import { RawLogModal } from './views/RawLogModal';
+import { TriageModal } from './views/TriageModal';
 
 /**
  * Main plugin class for Weaklog Processor
@@ -17,6 +23,8 @@ import { DEFAULT_SETTINGS, WeaklogSettingTab } from './settings';
  */
 export default class WeaklogPlugin extends Plugin {
   settings!: WeaklogSettings;
+  fileManager!: FileManager;
+  cooldownManager!: CooldownManager;
 
   /**
    * Called when plugin is loaded
@@ -31,10 +39,14 @@ export default class WeaklogPlugin extends Plugin {
     // Ensure weaklog folder structure exists
     await this.ensureFolderStructure();
 
+    // Initialize managers
+    this.fileManager = new FileManager(this.app, this.settings);
+    this.cooldownManager = new CooldownManager(this.app, this.settings);
+
     // Register settings tab
     this.addSettingTab(new WeaklogSettingTab(this.app, this));
 
-    // Register commands (stubs for Phase 2)
+    // Register commands
     this.registerCommands();
 
     console.log('[Weaklog] Plugin loaded successfully');
@@ -192,7 +204,7 @@ export default class WeaklogPlugin extends Plugin {
 
   /**
    * Register all plugin commands
-   * Full implementation in Phase 2
+   * Implements full workflow commands
    */
   private registerCommands(): void {
     // Command 1: Add Raw Log (Step 1)
@@ -200,7 +212,13 @@ export default class WeaklogPlugin extends Plugin {
       id: 'weaklog:add-raw',
       name: 'Add Raw Log',
       callback: () => {
-        new Notice('Command not yet implemented (Phase 2)');
+        const modal = new RawLogModal(
+          this.app,
+          this.fileManager,
+          this.cooldownManager,
+          this.settings
+        );
+        modal.open();
       },
     });
 
@@ -208,8 +226,8 @@ export default class WeaklogPlugin extends Plugin {
     this.addCommand({
       id: 'weaklog:check-cooldown',
       name: 'Check Cooldown Status',
-      callback: () => {
-        new Notice('Command not yet implemented (Phase 2)');
+      callback: async () => {
+        await this.cooldownManager.checkCooldownStatus();
       },
     });
 
@@ -223,7 +241,7 @@ export default class WeaklogPlugin extends Plugin {
         // Only available if active file is in 02_Cooling
         if (file && file.path.includes('/02_Cooling/')) {
           if (!checking) {
-            new Notice('Command not yet implemented (Phase 2)');
+            this.handleTriageCommand(file);
           }
           return true;
         }
@@ -241,7 +259,7 @@ export default class WeaklogPlugin extends Plugin {
         // Only available if active file is in 03_Triaged
         if (file && file.path.includes('/03_Triaged/')) {
           if (!checking) {
-            new Notice('Command not yet implemented (Phase 2)');
+            new Notice('Synthesis command will be implemented in Phase 3');
           }
           return true;
         }
@@ -259,7 +277,7 @@ export default class WeaklogPlugin extends Plugin {
         // Only available if active file is in 04_Synthesized
         if (file && file.path.includes('/04_Synthesized/')) {
           if (!checking) {
-            new Notice('Command not yet implemented (Phase 2)');
+            new Notice('Publish command will be implemented in Phase 3');
           }
           return true;
         }
@@ -267,6 +285,67 @@ export default class WeaklogPlugin extends Plugin {
       },
     });
 
-    console.log('[Weaklog] Commands registered (stubs)');
+    console.log('[Weaklog] Commands registered');
+  }
+
+  // ========================================================================
+  // Command Handlers
+  // ========================================================================
+
+  /**
+   * Handle triage command
+   * Analyzes entry with AI and displays results in TriageModal
+   */
+  private async handleTriageCommand(file: any): Promise<void> {
+    try {
+      // Validate API key
+      const apiKey = await this.getApiKey();
+      if (!apiKey) {
+        new Notice('⚠️ Please configure your Anthropic API key in settings', 5000);
+        return;
+      }
+
+      // Read entry
+      const entry = await this.fileManager.readWeaklogEntry(file);
+      if (!entry) {
+        new Notice('❌ Failed to read entry', 3000);
+        return;
+      }
+
+      // Show loading notice
+      const loadingNotice = new Notice('🤖 Analyzing entry with AI...', 0);
+
+      try {
+        // Initialize LLM client
+        const llmClient = new LLMClient(apiKey, this.settings.model);
+        llmClient.initialize();
+
+        // Analyze with triage
+        const analyzer = new TriageAnalyzer(llmClient, this.settings.triageTemperature);
+        const triageResult = await analyzer.analyzeEntry(entry.content);
+
+        // Hide loading notice
+        loadingNotice.hide();
+
+        // Open triage modal
+        const modal = new TriageModal(
+          this.app,
+          this.fileManager,
+          this.cooldownManager,
+          file,
+          triageResult
+        );
+        modal.open();
+
+      } catch (error) {
+        loadingNotice.hide();
+        throw error;
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Weaklog] Triage command failed:', error);
+      new Notice(`❌ Triage failed: ${errorMessage}`, 5000);
+    }
   }
 }

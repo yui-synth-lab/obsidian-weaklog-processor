@@ -10,6 +10,7 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type WeaklogPlugin from './main';
 import { WeaklogSettings, SecurityStorageMethod } from './types';
+import { LLMClient } from './llm/LLMClient';
 
 // ============================================================================
 // Default Settings
@@ -93,9 +94,11 @@ export class WeaklogSettingTab extends PluginSettingTab {
                 return;
               }
 
-              // Note: Actual test will be implemented in Phase 2 with LLMClient
-              // For now, just check if key exists
-              new Notice('✓ API key configured (full test available after Phase 2)', 3000);
+              // Test connection with LLMClient
+              const llmClient = new LLMClient(apiKey, this.plugin.settings.model);
+              await llmClient.testConnection();
+
+              new Notice('✓ Connection successful! API key is valid.', 3000);
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Unknown error';
               new Notice(`❌ Connection test failed: ${errorMessage}`, 5000);
