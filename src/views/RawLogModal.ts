@@ -23,6 +23,7 @@ export class RawLogModal extends Modal {
   private settings: WeaklogSettings;
   private contentTextarea: HTMLTextAreaElement | null = null;
   private cooldownInput: HTMLInputElement | null = null;
+  private charCounter: HTMLDivElement | null = null;
 
   constructor(
     app: App,
@@ -53,31 +54,38 @@ export class RawLogModal extends Modal {
     contentEl.createEl('h2', { text: 'Add Raw Log' });
 
     // Description
-    const desc = contentEl.createEl('p', {
+    contentEl.createEl('p', {
       text: 'Capture your feelings without judgment. This is a safe space for raw, unfiltered thoughts.',
+      cls: 'modal-description',
     });
-    desc.style.marginBottom = '16px';
-    desc.style.color = 'var(--text-muted)';
 
-    // Content textarea
-    const contentSetting = new Setting(contentEl)
-      .setName('Content')
-      .setDesc('Write freely. No editing, no judging. (Minimum 10 characters)');
+    // Content container
+    const contentContainer = contentEl.createDiv({ cls: 'weaklog-raw-content-container' });
 
-    const textareaContainer = contentSetting.controlEl.createDiv();
-    this.contentTextarea = textareaContainer.createEl('textarea', {
+    // Content label
+    contentContainer.createEl('div', {
+      text: 'Content',
+      cls: 'setting-item-name',
+    });
+    contentContainer.createEl('div', {
+      text: 'Write freely. No editing, no judging. (Minimum 10 characters)',
+      cls: 'setting-item-description',
+    });
+
+    // Textarea
+    this.contentTextarea = contentContainer.createEl('textarea', {
       placeholder: 'Today I felt...\n\nOr: I noticed...\n\nOr: Something that bothered me was...',
+      cls: 'weaklog-raw-textarea',
     });
 
-    this.contentTextarea.style.width = '100%';
-    this.contentTextarea.style.minHeight = '200px';
-    this.contentTextarea.style.resize = 'vertical';
-    this.contentTextarea.style.fontFamily = 'var(--font-text)';
-    this.contentTextarea.style.fontSize = '14px';
-    this.contentTextarea.style.padding = '8px';
-    this.contentTextarea.style.border = '1px solid var(--background-modifier-border)';
-    this.contentTextarea.style.borderRadius = '4px';
-    this.contentTextarea.style.backgroundColor = 'var(--background-primary)';
+    // Character counter
+    this.charCounter = contentContainer.createDiv({ cls: 'weaklog-char-counter' });
+    this.updateCharCounter();
+
+    // Update counter on input
+    this.contentTextarea.addEventListener('input', () => {
+      this.updateCharCounter();
+    });
 
     // Auto-focus textarea
     setTimeout(() => this.contentTextarea?.focus(), 100);
@@ -221,6 +229,27 @@ export class RawLogModal extends Modal {
     }
 
     return true;
+  }
+
+  /**
+   * Update character counter display
+   * Shows current character count and highlights if below minimum
+   */
+  private updateCharCounter(): void {
+    if (!this.charCounter || !this.contentTextarea) {
+      return;
+    }
+
+    const length = this.contentTextarea.value.length;
+    const minLength = 10;
+
+    if (length < minLength) {
+      this.charCounter.textContent = `${length} / ${minLength} characters (minimum)`;
+      this.charCounter.addClass('error');
+    } else {
+      this.charCounter.textContent = `${length} characters`;
+      this.charCounter.removeClass('error');
+    }
   }
 
   // ========================================================================

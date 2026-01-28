@@ -9,6 +9,81 @@
   margin-bottom: 16px;
 }
 
+/* Raw Log Modal - Enhanced */
+.weaklog-raw-modal .modal {
+  max-width: 700px;
+}
+
+.weaklog-raw-modal h2 {
+  margin-bottom: 8px;
+  font-size: 1.5em;
+}
+
+.weaklog-raw-modal .modal-description {
+  margin-bottom: 24px;
+  color: var(--text-muted);
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.weaklog-raw-content-container {
+  margin-bottom: 20px;
+}
+
+.weaklog-raw-content-container .setting-item-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 0.95em;
+}
+
+.weaklog-raw-content-container .setting-item-description {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  margin-bottom: 12px;
+}
+
+.weaklog-raw-textarea {
+  width: 100%;
+  min-height: 400px;
+  resize: vertical;
+  font-family: var(--font-text);
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 12px;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.weaklog-raw-textarea::placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.weaklog-raw-textarea:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 3px var(--interactive-accent-hover);
+}
+
+.weaklog-raw-textarea:hover:not(:focus) {
+  border-color: var(--interactive-accent-hover);
+}
+
+.weaklog-char-counter {
+  text-align: right;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.weaklog-char-counter.error {
+  color: var(--text-error);
+  font-weight: 600;
+}
+
 /* Triage result display */
 .weaklog-triage-result {
   margin: 16px 0;

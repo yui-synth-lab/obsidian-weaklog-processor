@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "build": "node esbuild.config.mjs production",
+    "deploy": "npm run build && node deploy.mjs",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

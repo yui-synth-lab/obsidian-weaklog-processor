@@ -1,6 +1,7 @@
 # Build outputs
 main.js
 *.js.map
+dist/
 
 # Node
 node_modules/
